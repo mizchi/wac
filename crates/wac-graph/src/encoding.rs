@@ -643,17 +643,95 @@ impl<'a> TypeEncoder<'a> {
 
     fn borrow(&self, state: &mut State, res: ResourceId) -> u32 {
         assert!(!state.scopes.is_empty());
-        let res = state.current.resources[self.0[res].name.as_str()];
+        let res = self.resource(state, res);
         let index = state.current.encodable.type_count();
         state.current.encodable.ty().defined_type().borrow(res);
         index
     }
 
     fn own(&self, state: &mut State, res: ResourceId) -> u32 {
-        let res = state.current.resources[self.0[res].name.as_str()];
+        let res = self.resource(state, res);
         let index = state.current.encodable.type_count();
         state.current.encodable.ty().defined_type().own(res);
         index
+    }
+
+    fn resource(&self, state: &mut State, res: ResourceId) -> u32 {
+        let resource = &self.0[res];
+        if let Some(index) = state.current.resources.get(resource.name.as_str()) {
+            return *index;
+        }
+
+        let source = self.0.resolve_resource(res);
+        if let Some(index) = state.current.type_indexes.get(&Type::Resource(source)) {
+            return *index;
+        }
+
+        if let Some(index) = state.current.type_indexes.get(&Type::Resource(res)) {
+            return *index;
+        }
+
+        if let Some(index) = self.alias_resource_from_instance_export(state, res) {
+            return index;
+        }
+
+        panic!(
+            "resource `{name}` is not encoded in the current scope; available resources: {available:?}",
+            name = resource.name,
+            available = state.current.resources.keys().collect::<Vec<_>>()
+        );
+    }
+
+    fn alias_resource_from_instance_export(
+        &self,
+        state: &mut State,
+        res: ResourceId,
+    ) -> Option<u32> {
+        let source = self.0.resolve_resource(res);
+        let (instance, export) = self.0.interfaces().find_map(|interface| {
+            let iid = interface.id.as_ref()?;
+            let instance = *state.current.instances.get(iid)?;
+            interface
+                .exports
+                .iter()
+                .find_map(|(name, kind)| match kind {
+                    ItemKind::Type(Type::Resource(id))
+                        if self.0.resolve_resource(*id) == source =>
+                    {
+                        Some((instance, name.clone()))
+                    }
+                    _ => None,
+                })
+        })?;
+
+        let index = state.current.encodable.type_count();
+        state.current.encodable.alias(Alias::InstanceExport {
+            instance,
+            kind: ComponentExportKind::Type,
+            name: &export,
+        });
+
+        log::debug!(
+            "aliased resource export `{export}` of instance index {instance} to type index {index}"
+        );
+
+        state
+            .current
+            .type_indexes
+            .insert(Type::Resource(source), index);
+        state
+            .current
+            .type_indexes
+            .insert(Type::Resource(res), index);
+        state
+            .current
+            .resources
+            .insert(self.0[source].name.clone(), index);
+        state
+            .current
+            .resources
+            .insert(self.0[res].name.clone(), index);
+        Some(index)
     }
 
     fn variant(&self, state: &mut State, variant: &Variant) -> u32 {

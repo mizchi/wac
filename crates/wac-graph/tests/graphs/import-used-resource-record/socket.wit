@@ -1,0 +1,22 @@
+package test:resource-record;
+
+interface http {
+  resource incoming-body;
+
+  record request {
+    body: incoming-body,
+  }
+}
+
+interface bridge {
+  ping: func();
+}
+
+world socket {
+  import http;
+  import bridge;
+
+  use http.{request};
+
+  export handle: func(req: request);
+}

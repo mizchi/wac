@@ -1,0 +1,45 @@
+{
+    "packages": [
+        {
+            "name": "test:socket",
+            "path": "socket.wit"
+        },
+        {
+            "name": "test:plug",
+            "path": "plug.wit"
+        }
+    ],
+    "nodes": [
+        {
+            "type": "instantiation",
+            "package": 0
+        },
+        {
+            "type": "instantiation",
+            "package": 1
+        },
+        {
+            "type": "alias",
+            "source": 1,
+            "export": "test:resource-record/bridge"
+        },
+        {
+            "type": "alias",
+            "source": 0,
+            "export": "handle"
+        }
+    ],
+    "arguments": [
+        {
+            "source": 2,
+            "target": 0,
+            "name": "test:resource-record/bridge"
+        }
+    ],
+    "exports": [
+        {
+            "node": 3,
+            "name": "handle"
+        }
+    ]
+}

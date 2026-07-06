@@ -1,0 +1,9 @@
+package test:resource-record;
+
+interface bridge {
+  ping: func();
+}
+
+world plug {
+  export bridge;
+}
